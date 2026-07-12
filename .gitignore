@@ -1,0 +1,6 @@
+# Claude Code local tool state — not project source.
+.claude/
+
+# OS junk
+.DS_Store
+Thumbs.db

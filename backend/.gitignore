@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local SQLite databases (dev-only fallback; production target is Postgres)
+*.db
+*.sqlite3
+
+.pytest_cache/
