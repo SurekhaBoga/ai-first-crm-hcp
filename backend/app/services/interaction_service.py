@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,7 +19,11 @@ def create_interaction(db: Session, payload: InteractionCreate) -> Interaction:
 
     interaction = Interaction(**payload.model_dump())
     db.add(interaction)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(interaction)
     return interaction
 
@@ -58,9 +62,16 @@ def list_interactions(
     if sentiment:
         stmt = stmt.where(Interaction.sentiment == sentiment)
     if date_from:
-        stmt = stmt.where(Interaction.interaction_date >= date_from)
+        start = datetime.combine(date_from, time.min) if isinstance(date_from, date) and not isinstance(date_from, datetime) else date_from
+        stmt = stmt.where(Interaction.interaction_date >= start)
     if date_to:
-        stmt = stmt.where(Interaction.interaction_date <= date_to)
+        # A date-only upper bound means the whole calendar day, not just
+        # midnight at its start. Use an exclusive next-day bound so the
+        # interaction_date index remains usable.
+        if isinstance(date_to, date) and not isinstance(date_to, datetime):
+            stmt = stmt.where(Interaction.interaction_date < datetime.combine(date_to + timedelta(days=1), time.min))
+        else:
+            stmt = stmt.where(Interaction.interaction_date <= date_to)
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(
@@ -73,6 +84,9 @@ def update_interaction(db: Session, interaction_id: uuid.UUID, payload: Interact
     interaction = get_interaction(db, interaction_id)
     updates = payload.model_dump(exclude_unset=True)
 
+    if "doctor_id" in updates:
+        get_doctor(db, updates["doctor_id"])
+
     follow_up_required = updates.get("follow_up_required", interaction.follow_up_required)
     follow_up_date = updates.get("follow_up_date", interaction.follow_up_date)
     if follow_up_required and not follow_up_date:
@@ -81,7 +95,11 @@ def update_interaction(db: Session, interaction_id: uuid.UUID, payload: Interact
     for field, value in updates.items():
         setattr(interaction, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(interaction)
     return interaction
 
@@ -89,7 +107,11 @@ def update_interaction(db: Session, interaction_id: uuid.UUID, payload: Interact
 def delete_interaction(db: Session, interaction_id: uuid.UUID) -> None:
     interaction = get_interaction(db, interaction_id)
     db.delete(interaction)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_doctor_timeline(

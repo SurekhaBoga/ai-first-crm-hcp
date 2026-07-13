@@ -12,7 +12,11 @@ from app.utils.text import normalize_search_term
 def create_doctor(db: Session, payload: DoctorCreate) -> Doctor:
     doctor = Doctor(**payload.model_dump())
     db.add(doctor)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(doctor)
     return doctor
 
@@ -67,7 +71,11 @@ def update_doctor(db: Session, doctor_id: uuid.UUID, payload: DoctorUpdate) -> D
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(doctor, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(doctor)
     return doctor
 
@@ -75,4 +83,8 @@ def update_doctor(db: Session, doctor_id: uuid.UUID, payload: DoctorUpdate) -> D
 def delete_doctor(db: Session, doctor_id: uuid.UUID) -> None:
     doctor = get_doctor(db, doctor_id)
     db.delete(doctor)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

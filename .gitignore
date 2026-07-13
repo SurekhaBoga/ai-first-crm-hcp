@@ -4,3 +4,17 @@
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Local dependencies, environments, and generated output
+.venv/
+node_modules/
+dist/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.db
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example

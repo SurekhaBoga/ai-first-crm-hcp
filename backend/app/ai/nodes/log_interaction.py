@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.ai.graph.state import GraphState
 from app.ai.llm.invoke import LLMInvocationError, invoke_structured
+from app.ai.parsers.local_interaction_parser import extract_interaction_locally
 from app.ai.prompts.log_interaction import build_log_interaction_prompt
 from app.ai.schemas.extraction import InteractionExtraction
 from app.ai.tools.errors import ToolExecutionError
@@ -25,10 +26,8 @@ def log_interaction(state: GraphState, config: RunnableConfig) -> dict:
         )
     except LLMInvocationError as exc:
         logger.error("log_interaction: extraction failed: %s", exc)
-        return {
-            "success": False,
-            "error": "Tell me a bit more about the visit — who you met and what happened — and I'll log it.",
-        }
+        extraction = extract_interaction_locally(message)
+        logger.info("log_interaction: using deterministic fallback extraction")
 
     # Surfaced in the reply (see response_formatter._log_interaction_message)
     # so the rep knows what was assumed and can correct it in the next

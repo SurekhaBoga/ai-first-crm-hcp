@@ -20,7 +20,11 @@ def save_message(db: Session, payload: ChatHistoryCreate) -> ChatHistory:
 
     message = ChatHistory(**payload.model_dump())
     db.add(message)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(message)
     return message
 
@@ -43,9 +47,17 @@ def get_session_history(db: Session, session_id: str) -> list[ChatHistory]:
 def delete_message(db: Session, chat_history_id: uuid.UUID) -> None:
     message = get_message(db, chat_history_id)
     db.delete(message)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def delete_session_history(db: Session, session_id: str) -> None:
     db.execute(delete(ChatHistory).where(ChatHistory.session_id == session_id))
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

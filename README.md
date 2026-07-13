@@ -100,7 +100,7 @@ design, since the assignment scope explicitly excludes auth.
 | `GROQ_MODEL` | no | `llama-3.3-70b-versatile` | See [console.groq.com/docs/models](https://console.groq.com/docs/models) for the current catalog — Groq periodically decommissions older models. |
 | `GROQ_TIMEOUT_SECONDS` | no | `30` | Per-call timeout to Groq. |
 | `AI_MAX_LLM_RETRIES` | no | `2` | Retries on a malformed/failed structured-output call before the node returns a graceful error. |
-| `CORS_ORIGINS` | no | `http://localhost:5173` | Comma-separated list. |
+| `CORS_ORIGINS` | no | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list. |
 | `LOG_LEVEL` | no | `INFO` | |
 | `APP_NAME` | no | `AI-First CRM HCP API` | |
 | `ENVIRONMENT` | no | `development` | |
@@ -114,7 +114,7 @@ so nothing in the codebase reads one.
 
 | Variable | Required | Default |
 |---|---|---|
-| `VITE_API_BASE_URL` | no | `http://localhost:8000/api/v1` |
+| `VITE_API_BASE_URL` | no | `/api/v1` (proxied to the local backend by Vite) |
 
 ## Running checks
 
@@ -122,13 +122,17 @@ so nothing in the codebase reads one.
 # Backend
 cd backend
 alembic check                 # confirms models match migrations, no drift
-python -m pytest              # if/when tests are added
+python -m pytest              # runs the backend test suite
 
 # Frontend
 cd frontend
 npm run lint
 npm run build
 ```
+
+For local development and backend tests, install the additional test
+dependencies with `pip install -r requirements-dev.txt`. The backend test
+suite uses SQLite and does not require a running PostgreSQL server.
 
 ## Troubleshooting
 

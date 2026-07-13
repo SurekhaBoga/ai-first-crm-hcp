@@ -23,6 +23,7 @@ from app.ai.tools.errors import ToolExecutionError
 from app.models.doctor import Doctor
 from app.models.interaction import Interaction, InteractionStatus, InteractionType
 from app.schemas.interaction import InteractionCreate, InteractionUpdate
+from app.schemas.doctor import DoctorCreate
 from app.services import doctor_service, interaction_service
 
 
@@ -36,6 +37,28 @@ def resolve_doctor(db: Session, *, doctor_name: str | None, doctor_id: uuid.UUID
     if total == 0:
         raise ToolExecutionError(f"I couldn't find a doctor matching '{doctor_name}'.")
     return matches[0]
+
+
+def resolve_or_create_doctor(db: Session, extraction: InteractionExtraction) -> Doctor:
+    """Resolve a logged HCP, creating a minimal directory entry when this
+    is the first time the rep mentions them. Edits still require an
+    existing doctor so a correction cannot silently create duplicates."""
+    if not extraction.doctor_name:
+        raise ToolExecutionError("Which doctor was this with?")
+
+    matches, total = doctor_service.search_doctors(db, extraction.doctor_name, page=1, page_size=5)
+    if total:
+        return matches[0]
+
+    context = " ".join(
+        value or ""
+        for value in (extraction.purpose, extraction.discussion_points, extraction.topics_discussed)
+    ).lower()
+    specialty = "Dentistry" if "dental" in context or "dentist" in context else "General Medicine"
+    return doctor_service.create_doctor(
+        db,
+        DoctorCreate(full_name=extraction.doctor_name, specialty=specialty),
+    )
 
 
 def log_interaction_tool(
@@ -56,7 +79,11 @@ def log_interaction_tool(
     if not extraction.doctor_name and not fallback_doctor_id:
         raise ToolExecutionError("Which doctor was this with?")
 
-    doctor = resolve_doctor(db, doctor_name=extraction.doctor_name, doctor_id=fallback_doctor_id)
+    doctor = (
+        resolve_doctor(db, doctor_name=None, doctor_id=fallback_doctor_id)
+        if fallback_doctor_id
+        else resolve_or_create_doctor(db, extraction)
+    )
 
     interaction_type = (
         coerce_interaction_type(extraction.interaction_type) if extraction.interaction_type else InteractionType.VISIT

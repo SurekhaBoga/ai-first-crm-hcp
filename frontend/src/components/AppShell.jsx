@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { signIn } from '@/store/slices/authSlice'
 import { resolveDefaultUserId } from '@/services/autoIdentity'
@@ -11,29 +13,63 @@ import { resolveDefaultUserId } from '@/services/autoIdentity'
  * (reuse the first User, or create a default local rep) so the AI-first
  * workspace is the very first thing a rep sees.
  *
- * `startedRef` (not a cleanup-based cancel flag) guards the one-shot
- * resolution call: dispatching `signIn` changes `userId`, which is this
- * effect's own dependency, so it re-runs as soon as the id lands — a
- * cleanup-based "cancelled" flag would race that re-run's cleanup against
- * the in-flight promise's `.then()`, sometimes losing `setResolving(false)`
- * for good. The ref sidesteps that: once started, later re-runs are
- * no-ops regardless of render timing.
+ * Startup failures are rendered explicitly with a retry action. This is
+ * important because identity resolution is the first API request the app
+ * makes; a stopped API or CORS mistake must never look like a blank page.
  */
 export default function AppShell() {
   const dispatch = useAppDispatch()
   const userId = useAppSelector((state) => state.auth.userId)
   const [resolving, setResolving] = useState(!userId)
-  const startedRef = useRef(false)
+  const [error, setError] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
-    if (userId || startedRef.current) return
-    startedRef.current = true
+    if (userId) return
 
-    resolveDefaultUserId().then((id) => {
-      dispatch(signIn(id))
-      setResolving(false)
-    })
-  }, [userId, dispatch])
+    let active = true
+
+    resolveDefaultUserId()
+      .then((id) => {
+        if (active) dispatch(signIn(id))
+      })
+      .catch(() => {
+        if (active) setError('Could not connect to the CRM API. Make sure the backend is running.')
+      })
+      .finally(() => {
+        if (active) setResolving(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [userId, dispatch, retryCount])
+
+  if (userId) return <Outlet />
+
+  if (error) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background p-6">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <AlertTriangle className="h-9 w-9 text-destructive" />
+          <div>
+            <h1 className="text-lg font-semibold">Unable to start the CRM</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+          </div>
+          <Button
+            onClick={() => {
+              setError(null)
+              setResolving(true)
+              setRetryCount((count) => count + 1)
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (resolving) {
     return (
@@ -43,5 +79,5 @@ export default function AppShell() {
     )
   }
 
-  return <Outlet />
+  return null
 }

@@ -22,7 +22,11 @@ def create_user(db: Session, payload: UserCreate) -> User:
 
     user = User(**payload.model_dump())
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(f"A user with email '{payload.email}' already exists.") from exc
     db.refresh(user)
     return user
 
@@ -54,7 +58,11 @@ def update_user(db: Session, user_id: uuid.UUID, payload: UserUpdate) -> User:
     for field, value in updates.items():
         setattr(user, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(f"A user with email '{new_email}' already exists.") from exc
     db.refresh(user)
     return user
 

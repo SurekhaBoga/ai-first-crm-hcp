@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.ai.graph.state import GraphState
 from app.ai.llm.invoke import LLMInvocationError, invoke_structured
+from app.ai.parsers.local_interaction_parser import extract_edit_locally
 from app.ai.prompts.edit_interaction import build_edit_interaction_prompt
 from app.ai.schemas.edit import InteractionEditExtraction
 from app.ai.tools.errors import ToolExecutionError
@@ -40,10 +41,8 @@ def edit_interaction(state: GraphState, config: RunnableConfig) -> dict:
         )
     except LLMInvocationError as exc:
         logger.error("edit_interaction: extraction failed: %s", exc)
-        return {
-            "success": False,
-            "error": "I'm not sure what to update — could you say specifically what changed, e.g. \"the doctor was actually Dr Lee\"?",
-        }
+        edit = extract_edit_locally(state["message"])
+        logger.info("edit_interaction: using deterministic fallback extraction")
 
     try:
         updated = edit_interaction_tool(db, uuid.UUID(interaction_id), edit)

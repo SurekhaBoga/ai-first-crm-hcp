@@ -29,7 +29,9 @@ class Settings:
     )
     DB_ECHO: bool = os.getenv("DB_ECHO", "false").lower() == "true"
 
-    CORS_ORIGINS: list[str] = _split_csv(os.getenv("CORS_ORIGINS", "http://localhost:5173"))
+    CORS_ORIGINS: list[str] = _split_csv(
+        os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    )
 
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 

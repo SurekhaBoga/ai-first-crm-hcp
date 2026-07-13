@@ -42,7 +42,7 @@ def _run_workflow(
     # the same ChatResponse shape every other outcome uses, rather than
     # letting the raw {"detail": ...} AppError response leak through.
     try:
-        chat_history_service.save_message(
+        user_message = chat_history_service.save_message(
             db,
             ChatHistoryCreate(
                 session_id=session_id,
@@ -80,14 +80,29 @@ def _run_workflow(
         "response", {"intent": "unknown", "success": False, "message": "No response produced.", "data": None, "error": "internal"}
     )
 
+    # A log/edit response can resolve context that was absent on input.
+    # Link both persisted messages to that resolved interaction/doctor so
+    # session history remains queryable by the entities it created.
+    response_interaction = (response_payload.get("data") or {}).get("interaction") or {}
+    resolved_interaction_id = _as_uuid(response_interaction.get("id")) or interaction_id
+    resolved_doctor_id = _as_uuid(response_interaction.get("doctor_id")) or doctor_id
+    if resolved_interaction_id != interaction_id or resolved_doctor_id != doctor_id:
+        user_message.interaction_id = resolved_interaction_id
+        user_message.doctor_id = resolved_doctor_id
+        try:
+            db.commit()
+        except Exception:  # chat linkage must not discard a successful AI action
+            db.rollback()
+            logger.exception("Could not link user chat message for session=%s", session_id)
+
     try:
         chat_history_service.save_message(
             db,
             ChatHistoryCreate(
                 session_id=session_id,
                 user_id=user_id,
-                doctor_id=doctor_id,
-                interaction_id=interaction_id,
+                doctor_id=resolved_doctor_id,
+                interaction_id=resolved_interaction_id,
                 role=ChatRole.ASSISTANT,
                 message=response_payload.get("message", ""),
             ),
@@ -100,6 +115,15 @@ def _run_workflow(
         logger.warning("Could not log assistant chat message for session=%s", session_id)
 
     return ChatResponse(session_id=session_id, **response_payload)
+
+
+def _as_uuid(value) -> uuid.UUID | None:
+    if not value:
+        return None
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError, AttributeError):
+        return None
 
 
 @router.post("/chat", response_model=ChatResponse)

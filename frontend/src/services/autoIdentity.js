@@ -2,9 +2,13 @@ import { listUsers, createUser } from '@/api/users'
 
 const DEFAULT_REP = {
   full_name: 'Local Rep',
-  email: 'local.rep@hcp-crm.local',
+  // EmailStr rejects the reserved `.local` domain, so use a syntactically
+  // valid non-sensitive development identity.
+  email: 'local.rep@hcpcrm.dev',
   role: 'rep',
 }
+
+let pendingIdentity = null
 
 /**
  * Resolves a userId to act as without ever showing a picker: reuses the
@@ -15,7 +19,18 @@ const DEFAULT_REP = {
  * user_id to attribute to — the backend has no auth layer, so *some*
  * User row is still required as the actor.
  */
-export async function resolveDefaultUserId() {
+export function resolveDefaultUserId() {
+  if (!pendingIdentity) {
+    pendingIdentity = resolveIdentity().catch((error) => {
+      // Allow a later Retry action to make a fresh request.
+      pendingIdentity = null
+      throw error
+    })
+  }
+  return pendingIdentity
+}
+
+async function resolveIdentity() {
   const page = await listUsers({ page: 1, pageSize: 1 })
   if (page.items.length > 0) return page.items[0].id
 
