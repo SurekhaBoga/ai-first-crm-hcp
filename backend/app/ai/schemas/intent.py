@@ -9,6 +9,8 @@ class IntentType(str, enum.Enum):
     SEARCH_INTERACTION = "search_interaction"
     DOCTOR_PROFILE = "doctor_profile"
     INTERACTION_SUMMARY = "interaction_summary"
+    FOLLOW_UP_RECOMMENDATION = "follow_up_recommendation"
+    GENERAL_ASSISTANCE = "general_assistance"
     UNKNOWN = "unknown"
 
 

@@ -37,7 +37,7 @@ class Settings:
 
     # AI layer (LangGraph + Groq) — see app/ai/
     GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
     GROQ_TIMEOUT_SECONDS: float = float(os.getenv("GROQ_TIMEOUT_SECONDS", "30"))
     AI_MAX_LLM_RETRIES: int = int(os.getenv("AI_MAX_LLM_RETRIES", "2"))
 

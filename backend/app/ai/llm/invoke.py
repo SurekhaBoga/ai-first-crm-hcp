@@ -7,6 +7,8 @@ error" — nodes never touch raw completions or ChatGroq directly.
 """
 
 import logging
+import re
+import time
 from typing import TypeVar
 
 from langchain_core.messages import BaseMessage
@@ -66,9 +68,50 @@ def invoke_structured(
         except Exception as exc:  # noqa: BLE001 - network/auth/rate-limit errors from the Groq SDK
             last_error = exc
             logger.warning("LLM call failed on attempt %d/%d: %s", attempt, attempts, exc)
+            wait_seconds = _retry_after_seconds(exc)
+            if wait_seconds and attempt < attempts:
+                # A per-minute (TPM) rate limit clears itself within
+                # seconds — unlike the daily (TPD) cap, retrying
+                # immediately (the old behavior) always fails because the
+                # window hasn't rolled over yet. Respect Groq's own
+                # "try again in Ns" hint instead of a blind fixed delay.
+                logger.info("Rate limited — waiting %.1fs before retry %d/%d", wait_seconds, attempt + 1, attempts)
+                time.sleep(wait_seconds)
 
     logger.error("LLM call exhausted %d attempts (schema=%s): %s", attempts, schema.__name__, last_error)
     raise LLMInvocationError(f"LLM did not produce a valid {schema.__name__} after {attempts} attempts") from last_error
+
+
+# Groq's rate-limit message reports the wait in one of three forms:
+# "try again in 539.999999ms", "try again in 2.06s", or
+# "try again in 1m8.256s" (minutes+seconds, for longer/daily-cap waits).
+_RETRY_AFTER_MS = re.compile(r"try again in (\d+(?:\.\d+)?)ms", re.IGNORECASE)
+_RETRY_AFTER_MIN_SEC = re.compile(r"try again in (\d+)m(\d+(?:\.\d+)?)s", re.IGNORECASE)
+_RETRY_AFTER_SEC = re.compile(r"try again in (\d+(?:\.\d+)?)s", re.IGNORECASE)
+
+
+def _retry_after_seconds(exc: Exception) -> float | None:
+    """
+    Parses Groq's own "Please try again in ..." hint out of a rate-limit
+    error message. Only worth sleeping for short (TPM-class) waits — a
+    daily (TPD) cap's wait can run into many minutes, and blocking a
+    request thread that long would just trade one bad experience for a
+    worse one, so anything over 10s is left to fail fast instead.
+    """
+    text = str(exc)
+    if "rate_limit" not in text and "429" not in text:
+        return None
+
+    if match := _RETRY_AFTER_MIN_SEC.search(text):
+        total = float(match.group(1)) * 60 + float(match.group(2))
+    elif match := _RETRY_AFTER_MS.search(text):
+        total = float(match.group(1)) / 1000
+    elif match := _RETRY_AFTER_SEC.search(text):
+        total = float(match.group(1))
+    else:
+        return None
+
+    return total if total <= 10 else None
 
 
 def _correction_message(schema: type[BaseModel], error: Exception):

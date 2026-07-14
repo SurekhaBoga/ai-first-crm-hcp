@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InteractionSearchFilters(BaseModel):
@@ -11,3 +11,6 @@ class InteractionSearchFilters(BaseModel):
     sentiment: str | None = None
     interaction_type: str | None = None
     keyword: str | None = None
+    follow_up_pending: bool | None = Field(
+        default=None, description="True if the rep is asking what follow-ups are due/pending"
+    )

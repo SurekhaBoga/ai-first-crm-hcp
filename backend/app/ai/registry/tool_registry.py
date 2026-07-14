@@ -14,6 +14,8 @@ INTENT_NODE_MAP: dict[str, str] = {
     IntentType.SEARCH_INTERACTION.value: "search_interaction",
     IntentType.DOCTOR_PROFILE.value: "doctor_profile",
     IntentType.INTERACTION_SUMMARY.value: "interaction_summary",
+    IntentType.FOLLOW_UP_RECOMMENDATION.value: "follow_up_recommendation",
+    IntentType.GENERAL_ASSISTANCE.value: "general_assistance",
 }
 
 FALLBACK_NODE = "response_formatter"

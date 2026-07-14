@@ -45,7 +45,7 @@ def edit_interaction(state: GraphState, config: RunnableConfig) -> dict:
         logger.info("edit_interaction: using deterministic fallback extraction")
 
     try:
-        updated = edit_interaction_tool(db, uuid.UUID(interaction_id), edit)
+        updated = edit_interaction_tool(db, uuid.UUID(interaction_id), edit, current=current)
     except ToolExecutionError as exc:
         logger.info("edit_interaction: tool rejected edit: %s", exc)
         return {"success": False, "error": str(exc)}

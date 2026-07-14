@@ -23,7 +23,10 @@ def search_interaction(state: GraphState, config: RunnableConfig) -> dict:
         )
     except LLMInvocationError as exc:
         logger.error("search_interaction: filter extraction failed: %s", exc)
-        return {"success": False, "error": "I couldn't understand that search — could you rephrase it?"}
+        return {
+            "success": False,
+            "error": "What are you looking for — a doctor, a product, a date range, or pending follow-ups?",
+        }
 
     try:
         items, total = search_interactions_tool(db, filters, page=1, page_size=20)

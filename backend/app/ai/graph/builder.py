@@ -10,6 +10,8 @@ from app.ai.graph.state import GraphState
 from app.ai.nodes.classify_intent import classify_intent
 from app.ai.nodes.doctor_profile import doctor_profile
 from app.ai.nodes.edit_interaction import edit_interaction
+from app.ai.nodes.follow_up_recommendation import follow_up_recommendation
+from app.ai.nodes.general_assistance import general_assistance
 from app.ai.nodes.interaction_summary import interaction_summary
 from app.ai.nodes.log_interaction import log_interaction
 from app.ai.nodes.response_formatter import response_formatter
@@ -25,6 +27,8 @@ def build_graph() -> StateGraph:
     graph.add_node("search_interaction", search_interaction)
     graph.add_node("doctor_profile", doctor_profile)
     graph.add_node("interaction_summary", interaction_summary)
+    graph.add_node("follow_up_recommendation", follow_up_recommendation)
+    graph.add_node("general_assistance", general_assistance)
     graph.add_node("response_formatter", response_formatter)
 
     wire_edges(graph)

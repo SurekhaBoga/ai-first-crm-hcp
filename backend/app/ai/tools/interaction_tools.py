@@ -129,7 +129,7 @@ def log_interaction_tool(
 
 
 def edit_interaction_tool(
-    db: Session, interaction_id: uuid.UUID, edit: InteractionEditExtraction
+    db: Session, interaction_id: uuid.UUID, edit: InteractionEditExtraction, *, current: Interaction | None = None
 ) -> Interaction:
     updates: dict = {}
     if edit.doctor_name is not None:
@@ -147,7 +147,20 @@ def edit_interaction_tool(
     if edit.discussion_points is not None:
         updates["discussion_points"] = edit.discussion_points
     if edit.products_discussed is not None:
-        updates["products_discussed"] = edit.products_discussed
+        # Safety net regardless of how well the prompt's merge instruction
+        # was followed: a non-empty new list is UNIONED with what's
+        # already recorded, so an earlier-mentioned product can never be
+        # silently dropped by a later message that only re-states the
+        # newest one. An explicit empty list is treated as a deliberate
+        # "clear it" (see the prompt's removal-signaling convention).
+        if edit.products_discussed and current is not None:
+            merged = list(current.products_discussed)
+            for product in edit.products_discussed:
+                if product not in merged:
+                    merged.append(product)
+            updates["products_discussed"] = merged
+        else:
+            updates["products_discussed"] = edit.products_discussed
     if edit.samples_distributed is not None:
         updates["samples_distributed"] = edit.samples_distributed
     if edit.sentiment is not None:

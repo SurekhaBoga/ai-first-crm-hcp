@@ -36,6 +36,8 @@ def search_interactions_tool(
     )
 
     items = db_items
+    if filters.follow_up_pending:
+        items = [i for i in items if i.follow_up_required]
     if filters.product:
         needle = filters.product.lower()
         items = [i for i in items if any(needle in p.lower() for p in i.products_discussed)]

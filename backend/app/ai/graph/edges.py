@@ -14,8 +14,9 @@ ACTION_NODES = sorted(set(INTENT_NODE_MAP.values()))
 def wire_edges(graph: StateGraph) -> None:
     graph.set_entry_point("classify_intent")
 
-    # classify_intent -> exactly one of the 5 action nodes, or straight to
-    # response_formatter if the intent came back unknown/unclassifiable.
+    # classify_intent -> exactly one of the action nodes (see
+    # INTENT_NODE_MAP), or straight to response_formatter if the intent
+    # came back unknown/unclassifiable.
     path_map = {node: node for node in ACTION_NODES}
     path_map[FALLBACK_NODE] = FALLBACK_NODE
     graph.add_conditional_edges("classify_intent", route_by_intent, path_map)

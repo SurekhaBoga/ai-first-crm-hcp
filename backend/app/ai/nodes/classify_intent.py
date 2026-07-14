@@ -4,6 +4,7 @@ POST /ai/log, /ai/edit, /ai/search, GET /ai/doctor/*, GET /ai/summary/*
 endpoints all set `forced_intent`)."""
 
 import logging
+import uuid
 
 from langchain_core.runnables import RunnableConfig
 
@@ -12,43 +13,47 @@ from app.ai.llm.invoke import LLMInvocationError, invoke_structured
 from app.ai.parsers.local_interaction_parser import looks_like_interaction
 from app.ai.prompts.intent_classification import build_intent_prompt
 from app.ai.schemas.intent import IntentClassification, IntentType
+from app.core.exceptions import NotFoundError
+from app.services import doctor_service, interaction_service
 
 logger = logging.getLogger("app.ai.nodes.classify_intent")
 
 
-def _continue_draft_if_open(state: GraphState, intent: str) -> str:
+def _describe_open_draft(state: GraphState, db) -> str | None:
     """
-    The frontend's AI workspace threads the same `interaction_id` through
-    every message once a draft has been started (see
-    frontend/src/store/slices/interactionDraftSlice.js). If one is present and the
-    classified intent is log_interaction, the rep is still describing the
-    SAME visit, not starting a new one — route to edit_interaction so the
-    existing draft is refined in place instead of a duplicate being
-    created. explicit search / doctor_profile / summary requests still
-    route normally even with a draft open.
+    One-line summary of the interaction already open in this conversation
+    (if any), fed into the classification prompt so the LLM can tell a
+    correction/continuation of THIS visit apart from a message that starts
+    describing a different one — see build_intent_prompt's log vs edit
+    guidance. Replaces a hard rule that used to force every log_interaction
+    classification into edit_interaction whenever a draft was open, which
+    broke "now I also saw Dr Kumar" (a second, separate interaction).
     """
-    if intent == IntentType.LOG_INTERACTION.value and state.get("interaction_id"):
-        logger.info(
-            "classify_intent: interaction_id=%s already open — routing log_interaction as edit_interaction",
-            state["interaction_id"],
-        )
-        return IntentType.EDIT_INTERACTION.value
-    return intent
+    interaction_id = state.get("interaction_id")
+    if not interaction_id:
+        return None
+    try:
+        interaction = interaction_service.get_interaction(db, uuid.UUID(interaction_id))
+        doctor = doctor_service.get_doctor(db, interaction.doctor_id)
+    except (NotFoundError, ValueError):
+        return None
+    return f"{interaction.interaction_type.value} with {doctor.full_name} on {interaction.interaction_date.date()}"
 
 
 def classify_intent(state: GraphState, config: RunnableConfig) -> dict:
+    db = config["configurable"]["db"]
     forced_intent = state.get("forced_intent")
     if forced_intent:
         logger.info("classify_intent: using forced_intent=%s (skipping LLM call)", forced_intent)
-        intent = _continue_draft_if_open(state, forced_intent)
-        return {"intent": intent, "intent_confidence": 1.0}
+        return {"intent": forced_intent, "intent_confidence": 1.0}
 
     message = state["message"]
-    logger.info("classify_intent: classifying message=%.80r", message)
+    draft_context = _describe_open_draft(state, db)
+    logger.info("classify_intent: classifying message=%.80r draft_context=%r", message, draft_context)
 
     try:
         result: IntentClassification = invoke_structured(
-            build_intent_prompt(message), IntentClassification
+            build_intent_prompt(message, current_draft_context=draft_context), IntentClassification
         )
         logger.info(
             "classify_intent: intent=%s confidence=%.2f reasoning=%r",
@@ -56,8 +61,7 @@ def classify_intent(state: GraphState, config: RunnableConfig) -> dict:
             result.confidence,
             result.reasoning,
         )
-        intent = _continue_draft_if_open(state, result.intent.value)
-        return {"intent": intent, "intent_confidence": result.confidence}
+        return {"intent": result.intent.value, "intent_confidence": result.confidence}
     except LLMInvocationError as exc:
         logger.error("classify_intent: LLM classification failed: %s", exc)
         if state.get("interaction_id"):

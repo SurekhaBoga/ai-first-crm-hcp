@@ -97,7 +97,7 @@ design, since the assignment scope explicitly excludes auth.
 |---|---|---|---|
 | `DATABASE_URL` | yes | `postgresql+psycopg://postgres:postgres@localhost:5432/hcp_crm` | Use a `postgresql+psycopg://` URL. A `sqlite:///./dev.db` URL also works for zero-setup local dev — `app/database/session.py` branches on the scheme. |
 | `GROQ_API_KEY` | yes | — | Required for every `/api/v1/ai/*` endpoint. Without it, the rest of the API (users/doctors/interactions CRUD) still works fine. |
-| `GROQ_MODEL` | no | `llama-3.3-70b-versatile` | See [console.groq.com/docs/models](https://console.groq.com/docs/models) for the current catalog — Groq periodically decommissions older models. |
+| `GROQ_MODEL` | no | `llama-3.1-8b-instant` | The assignment names `gemma2-9b-it`, which Groq has permanently decommissioned — this is the closest currently-supported equivalent. See [console.groq.com/docs/models](https://console.groq.com/docs/models) for the live catalog. |
 | `GROQ_TIMEOUT_SECONDS` | no | `30` | Per-call timeout to Groq. |
 | `AI_MAX_LLM_RETRIES` | no | `2` | Retries on a malformed/failed structured-output call before the node returns a graceful error. |
 | `CORS_ORIGINS` | no | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list. |

@@ -36,6 +36,10 @@ def _edit_interaction_message(result: dict) -> str:
 
 def _search_interaction_message(result: dict) -> str:
     total = result.get("total", 0)
+    if result.get("filters_applied", {}).get("follow_up_pending"):
+        if total == 0:
+            return "No pending follow-ups — you're all caught up."
+        return f"{total} pending follow-up{'s' if total != 1 else ''}."
     return f"Found {total} matching interaction{'s' if total != 1 else ''}."
 
 
@@ -49,12 +53,25 @@ def _interaction_summary_message(result: dict) -> str:
     return result.get("summary", "Summary generated.")
 
 
+def _follow_up_recommendation_message(result: dict) -> str:
+    message = result["recommendation"]
+    if result.get("suggested_timing"):
+        message += f" ({result['suggested_timing']})"
+    return message
+
+
+def _general_assistance_message(result: dict) -> str:
+    return result["message"]
+
+
 _MESSAGE_BUILDERS = {
     IntentType.LOG_INTERACTION.value: _log_interaction_message,
     IntentType.EDIT_INTERACTION.value: _edit_interaction_message,
     IntentType.SEARCH_INTERACTION.value: _search_interaction_message,
     IntentType.DOCTOR_PROFILE.value: _doctor_profile_message,
     IntentType.INTERACTION_SUMMARY.value: _interaction_summary_message,
+    IntentType.FOLLOW_UP_RECOMMENDATION.value: _follow_up_recommendation_message,
+    IntentType.GENERAL_ASSISTANCE.value: _general_assistance_message,
 }
 
 
