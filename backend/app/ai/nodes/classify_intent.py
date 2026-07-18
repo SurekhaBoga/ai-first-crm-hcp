@@ -68,7 +68,7 @@ def classify_intent(state: GraphState, config: RunnableConfig) -> dict:
             logger.info("classify_intent: continuing open draft with deterministic edit fallback")
             return {"intent": IntentType.EDIT_INTERACTION.value, "intent_confidence": 0.7}
         if looks_like_interaction(message):
-            intent = _continue_draft_if_open(state, IntentType.LOG_INTERACTION.value)
+            intent = IntentType.LOG_INTERACTION.value
             logger.info("classify_intent: using deterministic fallback intent=%s", intent)
             return {"intent": intent, "intent_confidence": 0.75}
         return {
