@@ -6,7 +6,7 @@ below this point.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -94,6 +94,12 @@ def log_interaction_tool(
         else datetime.now(timezone.utc)
     )
 
+    follow_up_required = extraction.follow_up_required or False
+    follow_up_date = coerce_date(extraction.follow_up_date, field_name="follow_up_date")
+    # If follow-up is required but no date was extracted, default to 1 week from interaction date
+    if follow_up_required and not follow_up_date:
+        follow_up_date = interaction_date.date() + timedelta(days=7)
+
     payload = InteractionCreate(
         doctor_id=doctor.id,
         user_id=user_id,
@@ -106,9 +112,9 @@ def log_interaction_tool(
         products_discussed=extraction.products_discussed or [],
         samples_distributed=extraction.samples_distributed or False,
         sentiment=coerce_sentiment(extraction.sentiment),
-        follow_up_required=extraction.follow_up_required or False,
+        follow_up_required=follow_up_required,
         follow_up_actions=extraction.follow_up_actions,
-        follow_up_date=coerce_date(extraction.follow_up_date, field_name="follow_up_date"),
+        follow_up_date=follow_up_date,
         attendees=extraction.attendees,
         topics_discussed=extraction.topics_discussed,
         clinical_evidence=extraction.clinical_evidence,
