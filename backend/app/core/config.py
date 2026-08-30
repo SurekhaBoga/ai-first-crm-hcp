@@ -18,14 +18,25 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _database_url(value: str) -> str:
+    """Use the installed psycopg v3 driver for provider-supplied Postgres URLs."""
+    if value.startswith("postgresql://"):
+        return value.replace("postgresql://", "postgresql+psycopg://", 1)
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql+psycopg://", 1)
+    return value
+
+
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "AI-First CRM HCP API")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     API_V1_PREFIX: str = "/api/v1"
 
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://postgres:postgres@localhost:5432/hcp_crm",
+    DATABASE_URL: str = _database_url(
+        os.getenv(
+            "DATABASE_URL",
+            "postgresql+psycopg://postgres:postgres@localhost:5432/hcp_crm",
+        )
     )
     DB_ECHO: bool = os.getenv("DB_ECHO", "false").lower() == "true"
 
